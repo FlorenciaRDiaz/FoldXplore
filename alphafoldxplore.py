@@ -1,51 +1,73 @@
-# -*- coding: utf-8 -*-
 
+###
 import os
-from os import name
-if 'COLAB_GPU' in os.environ:
-  from google.colab import files #to download the predictions later if you're on Colab
+import sys
+
+# Detectar si se está corriendo en Google Colab
+is_colab = 'COLAB_GPU' in os.environ
+
+if is_colab:
+    try:
+        from google.colab import files  # Solo disponible en Colab
+        import nglview  # Solo en Colab para visualización
+    except ImportError:
+        print("Error al importar módulos específicos de Colab.")
 else:
-  print('For best results install AlphaFoldXplore on a Colab machine.')
-  try:
-    import nglview
-  except:
-    pass
+    print("No estás en Google Colab. Algunas funcionalidades estarán limitadas.")
+    try:
+        import nglview  # Si quieres usar nglview en VSC también
+    except ImportError:
+        print("Nglview no está instalado. Algunas funcionalidades estarán limitadas.")
+
+# Agregar el path del módulo
+module_path = r'C:/Users/flor_/FoldComparative'
+if module_path not in sys.path:
+    sys.path.append(module_path)
+
+# Importar módulos de la librería
+from AlphaFoldXplore_3 import prediction_results
+
+# Resto de las importaciones
 import subprocess
 import tqdm.notebook
 import json
-#-------------------
-import sys
-sys.path.insert(1, 'AlphaFoldXplore')
-import pickle
-
-if "/content/tmp/bin" not in os.environ['PATH']:
-  os.environ['PATH'] += ":/content/tmp/bin:/content/tmp/scripts"
-
 from urllib import request
 from concurrent import futures
-import json
-from matplotlib import gridspec
-import zipfile
-from zipfile import ZipFile
 import matplotlib.pyplot as plt
 import Bio
 from Bio import PDB
-import ipywidgets as widget
 from Bio.PDB.PDBParser import PDBParser
 from Bio.PDB.MMCIFParser import MMCIFParser
 from Bio.PDB import PDBIO
 import math
 import numpy as np
-import gc #free memory resources, unrelated to AlphaFold
+import gc  # free memory resources
 import time
 import pandas as pd
 import seaborn as sns
 from datetime import datetime
 import shutil
-import prediction_results
 import re
+from zipfile import ZipFile
+
+# Crear directorio de entrada si no existe
 os.makedirs("input", exist_ok=True)
 
+# Función para cargar archivos .zip en Google Colab
+def upload_zip_colab():
+    if is_colab:
+        uploaded = files.upload()
+        input_directory = 'input_af3'
+        if not os.path.exists(input_directory):
+            os.makedirs(input_directory)
+
+        for filename in uploaded.keys():
+            file_path = os.path.join(input_directory, filename)
+            with open(file_path, 'wb') as f:
+                f.write(uploaded[filename])
+    else:
+        print("Esta función está diseñada para Google Colab.")
+##
 def set_up():
   if 'COLAB_GPU' in os.environ:
     import tensorflow as tf

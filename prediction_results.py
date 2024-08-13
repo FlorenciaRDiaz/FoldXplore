@@ -1,5 +1,5 @@
 import sys
-sys.path.insert(2, 'AlphaFoldXplore')
+sys.path.insert(2, 'AlphaFoldXplore_3')
 import alphafoldxplore as afx
 import os
 

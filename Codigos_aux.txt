@@ -1,0 +1,47 @@
+# -*- coding: utf-8 -*-
+
+import os
+from os import name
+if 'COLAB_GPU' in os.environ:
+  from google.colab import files #to download the predictions later if you're on Colab
+else:
+  print('For best results install AlphaFoldXplore on a Colab machine.')
+  try:
+    import nglview
+  except:
+    pass
+import subprocess
+import tqdm.notebook
+import json
+#-------------------
+import sys
+sys.path.insert(1, 'AlphaFoldXplore_3')
+import pickle
+
+if "/content/tmp/bin" not in os.environ['PATH']:
+  os.environ['PATH'] += ":/content/tmp/bin:/content/tmp/scripts"
+
+from urllib import request
+from concurrent import futures
+import json
+from matplotlib import gridspec
+import zipfile
+from zipfile import ZipFile
+import matplotlib.pyplot as plt
+import Bio
+from Bio import PDB
+import ipywidgets as widget
+from Bio.PDB.PDBParser import PDBParser
+from Bio.PDB.MMCIFParser import MMCIFParser
+from Bio.PDB import PDBIO
+import math
+import numpy as np
+import gc #free memory resources, unrelated to AlphaFold
+import time
+import pandas as pd
+import seaborn as sns
+from datetime import datetime
+import shutil
+import prediction_results
+import re
+os.makedirs("input", exist_ok=True)
