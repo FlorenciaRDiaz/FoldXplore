@@ -24,7 +24,43 @@ import py3Dmol
 # * * * * * * * * FUNCIONES * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *  
 
 # FUNCION- FLOR -----------------------------------------------------------------------------------------------
+def load_af3_pdb(zip_file_path):
+    Z = {}
+    name = os.path.basename(zip_file_path).replace('.zip', '')
+    folder = f'AF3_files/{name}'
+    results_folder = f'AF3_files/{name}'
+    os.makedirs(results_folder, exist_ok=True)
 
+    with zipfile.ZipFile(zip_file_path, 'r') as fz:
+        fz.extractall(folder)
+
+    pdb_file_path = None
+
+    for path in os.listdir(folder):
+        long_path = os.path.join(folder, path)
+
+        if long_path.endswith("_summary_confidences_0.json"):
+            with open(long_path, 'r') as file:
+                data = json.load(file)
+                ptmscore = float(data['ptm'])
+
+        if long_path.endswith("_model_0.cif"):
+            file_parser = MMCIFParser(QUIET=True)
+            structure = file_parser.get_structure("base", long_path)
+            io = PDBIO()
+            io.set_structure(structure)
+            io.save(f'{results_folder}/{name}_relaxed.pdb', select=Select())
+            pdb_file_path = f'{results_folder}/{name}_relaxed.pdb'
+            print(f"Archivo PDB guardado en: {pdb_file_path}")
+
+        if long_path.endswith("_full_data_0.json"):
+            with open(long_path, 'r') as file:
+                data = json.load(file)
+                distance = {"distance": data['pae']}
+            with open(f'{results_folder}/{name}_pae.json', 'w', encoding='utf-8') as f:
+                json.dump(distance, f, ensure_ascii=False)
+
+    return pdb_file_path
 # def load_af3_pdb(zip_file_path):  # Cambié el argumento para aceptar la ruta del archivo
 #     Z = {}
 
@@ -172,7 +208,7 @@ def get_pdb_ca_from_content(pdb_content):
         'X orthogonal coordinate': X_orthogonal_coordinates,
         'Y orthogonal coordinate': Y_orthogonal_coordinates,
         'Z orthogonal coordinate': Z_orthogonal_coordinates,
-        'B factor': B_factor
+        'pLDDT': B_factor
     })
 
     return df_pdb
@@ -180,7 +216,7 @@ def get_pdb_ca_from_content(pdb_content):
 def GET_PLDDTS(pdb_1):
     fig_plddt = go.Figure()
     fig_plddt.add_trace(go.Scatter( x=pdb_1.index,
-                                    y=pdb_1["B factor"],
+                                    y=pdb_1["pLDDT"],
                                     line=dict(color='#40e0d0')))
 
     return fig_plddt
@@ -190,7 +226,7 @@ def GET_PLDDTS(pdb_1):
 
 # Set Up de la applicación * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *  
 st.set_page_config(
-    page_title="NOMBRE DE LA APP",
+    page_title="FoldXplore",
     page_icon="	:mag_right:",
     layout="wide",
     initial_sidebar_state="collapsed",
@@ -216,25 +252,38 @@ st.set_page_config(
 
 # * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
 
-st.write("Buen Día :)")
+st.write("Bienvenidos a FoldXplore :)")
 
 
 # objeto para subir el archivo .zp
 uploaded_file = st.file_uploader("Sube un archivo .zip de AlphaFold 3", type="zip")
 
 if uploaded_file is not None:
-       
-    # Extraer datos
+     # Guardar el archivo subido temporalmente
+    with open('temp_uploaded.zip', 'wb') as f:
+        f.write(uploaded_file.getvalue())
+    
+   #procesar el archivo ZIP y extraer los datos necesarios
     pdb_content, pae, ptmscore = extract_data_from_zip(uploaded_file)
     
+    
+    # Botón de descarga para el archivo PDB
+    if pdb_content:
+        st.download_button(
+            label="Descargar archivo PDB",
+            data=pdb_content,
+            file_name="model_relaxed.pdb",
+            mime="chemical/x-pdb"
+        )
+
     st.write('PTM Score: ', ptmscore)
     
-    st.write("PAE's Dataframe")
-    st.dataframe(pae)
+    # st.write("PAE's Dataframe")
+    # st.dataframe(pae)
 
-    fig_pae = GET_PAE_GRAPH(pae)
-    st.write('PAE´s Heatmap:')
-    st.plotly_chart(fig_pae)
+    # fig_pae = GET_PAE_GRAPH(pae)
+    # st.write('PAE´s Heatmap:')
+    # st.plotly_chart(fig_pae)
 
     if pdb_content:
         st.write("Visualizando la estructura 3D del modelo PDB:")
@@ -249,4 +298,3 @@ if uploaded_file is not None:
         st.plotly_chart(fig_plddt)
     else:
         st.write("No se encontró un archivo _model_0.cif en el zip.")
-
