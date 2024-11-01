@@ -1,10 +1,4 @@
-# ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ 
-
-# * * * * * * * * FUNCIONES * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *  
-
-import streamlit as st
-# ~ ~ ~ ~ ~ ~ ~ ~ LIBRERIAS ~ ~ ~ ~ ~ ~ ~ ~
-
+# ~ ~ ~ ~ ~ ~ ~ ~ LIBRERIAS ~ ~ ~ ~ ~ ~ ~
 import streamlit as st
 import pandas as pd
 import numpy as np
@@ -19,11 +13,8 @@ from Bio.PDB import MMCIFParser, PDBIO, Select
 from io import BytesIO
 import py3Dmol
 
-# ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
+# ~ ~ ~ ~ ~ ~ ~ ~ FUNCIONES ~ ~ ~ ~ ~ ~ ~
 
-# * * * * * * * * FUNCIONES * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *  
-
-# FUNCION- FLOR -----------------------------------------------------------------------------------------------
 def load_af3_pdb(zip_file_path):
     name = os.path.basename(zip_file_path).replace('.zip', '')
     folder = f'AF3_files/{name}'
@@ -42,7 +33,7 @@ def load_af3_pdb(zip_file_path):
             io.set_structure(structure)
             io.save(f'{folder}/{name}_relaxed.pdb', select=Select())
             pdb_file_path = f'{folder}/{name}_relaxed.pdb'
-            print(f"Archivo PDB guardado en: {pdb_file_path}")
+            print(f"PDB file saved in: {pdb_file_path}")
 
     return pdb_file_path
 
@@ -99,17 +90,55 @@ def extract_data_from_zip(zip_file):
 
     return pdb_content, Pae_distance, ptmscore
 
-def visualize_pdb_3d(pdb_content):
+def visualize_pdb_3d(pdb_content, spin=False):
     view_3d = py3Dmol.view(width=800, height=500)
     view_3d.addModel(pdb_content, 'pdb')
-    view_3d.setStyle({'model': 0}, {"cartoon": {'color': '0x51adbe'}})
+
+    # Colorear por B-factor
+    view_3d.setStyle({'model': 0}, {
+        'cartoon': {
+            'colorscheme': {
+                'prop': 'b',
+                'gradient': 'roygb',
+                'min': 0,
+                'max': 100
+            }
+        }
+    })
+
+    # Controlar la rotación
+    rotate = st.checkbox("Spin")
+    if rotate:
+        view_3d.spin(True)  # Activar la rotación
+    else:
+        view_3d.spin(False)  # Desactivar la rotación
     view_3d.zoomTo()
     return view_3d
 
 def GET_PAE_GRAPH(df_pae):
-    fig_pae = go.Figure(data=go.Heatmap(z=df_pae, colorscale="Rainbow"))
-    fig_pae.update_layout(width=500, height=500, yaxis=dict(scaleanchor="x", scaleratio=1), xaxis=dict(constrain='domain'))
-    return fig_pae
+    fig = px.imshow(df_pae, color_continuous_scale='Viridis', title="")
+
+    fig.update_layout(
+        width=500,
+        height=500,
+        xaxis_title="Scored Residue",  # Etiqueta del eje X
+        yaxis_title="Aligned Residue",  # Etiqueta del eje Y
+        coloraxis_colorbar=dict(
+            title=dict(
+                text="Expected Position Error (Ångströms)",  # Texto del título de la barra de colores
+                side="bottom"  # Coloca el título debajo de la barra
+            ),
+            orientation="h",  # Orientación horizontal para la barra de colores
+            x=0.5,  # Posiciona la barra de colores hacia el lado izquierdo
+            y=-0.5,  # Alinea la barra de colores más cerca del gráfico
+            len=0.5  # Reduce el ancho de la barra de colores
+        )
+    )
+
+    # Margen adicional para acomodar el título y la barra de colores
+    fig.update_layout(margin=dict(l=50, r=50, t=50, b=120))
+
+    return fig
 
 def get_pdb_ca_from_content(pdb_content):
     Atom_serial_number = []
@@ -143,12 +172,14 @@ def get_pdb_ca_from_content(pdb_content):
     return df_pdb
 
 def GET_PLDDTS(pdb_1):
-    fig_plddt = go.Figure()
-    fig_plddt.add_trace(go.Scatter(x=pdb_1.index, y=pdb_1["pLDDT"], line=dict(color='#40e0d0')))
-    return fig_plddt
+    fig = px.line(pdb_1, x='Atom Serial Number', y="pLDDT", title="")
+    fig.update_layout(
+        xaxis_title="Cα positions",
+        yaxis_title="pLDDT"
+    )
+    return fig
 
-# * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
-
+# * * * * * * * * INTERFAZ DE USUARIO * * * * * * * *
 st.set_page_config(
     page_title="FoldXplore Tool",
     page_icon=":mag_right:",
@@ -156,63 +187,162 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# Título de la aplicación
-st.title("FoldXplore")
-st.write("-----")
+#st.title("FoldXplore 3")
+# Mostrar el logo
+st.image("Logo.png",
+         width = 300)
 st.markdown("""
-    Bienvenido a FoldXplore! Aquí puedes explorar y visualizar estructuras de proteínas 
-    obtenidas a partir de archivos de predicción de AlphaFold 3. Sube un archivo ZIP 
-    y explora las predicciones de proteínas.
+    Welcome to FoldXplore!,  Here you can explore and visualize protein structures
+    obtained from AlphaFold 3 prediction files. Upload a ZIP
+    file and explore the protein predictions.
 """)
+# Título grande fuera del file_uploader
+st.write("### Upload a .zip file of AlphaFold 3: ")
+# Objeto de carga de archivos sin título adicional
+uploaded_file = st.file_uploader("", type="zip")
 
-#st.write("Bienvenidos a FoldXplore :)")
-
-# Subir archivo ZIP
-uploaded_file = st.file_uploader("Sube un archivo .zip de AlphaFold 3", type="zip")
 
 if uploaded_file is not None:
     with open('temp_uploaded.zip', 'wb') as f:
         f.write(uploaded_file.getvalue())
-    
+
     df_ranking_scores = extract_ranking_scores_from_zip('temp_uploaded.zip')
-    
+
     if not df_ranking_scores.empty:
-        st.write("Ranking Scores Extraídos:")
+        st.write("**Ranking Scores:**")
         st.dataframe(df_ranking_scores)
     else:
-        st.write("No se encontraron archivos de resumen de confianza en el ZIP.")
+        st.write("No trusted summary files were found in the ZIP.")
 
-    # Procesar archivo ZIP
     pdb_content, pae, ptmscore = extract_data_from_zip('temp_uploaded.zip')
-    
-    # Menú para seleccionar predicción
-    prediction_option = st.selectbox("Selecciona la predicción a explorar", options=[0, 1, 2, 3, 4])
+
+    st.write("### Select the prediction to explore: ")
+    prediction_option = st.selectbox("", options=[0, 1, 2, 3, 4])
+    # Mensaje de descarga del PDB
+    # st.markdown("### Download PDB File")
+    # st.write("You can download the PDB file clicking on the button below:")
+    # if pdb_content:
+    #     st.download_button(
+    #         label="Download PDB file",
+    #         data=pdb_content,
+    #         file_name="model_relaxed.pdb",
+    #         mime="chemical/x-pdb"
+    #     )
+    # Estilo simple para el botón
+    import base64
+
+# Supón que pdb_content es tu contenido PDB
 
     if pdb_content:
-        st.download_button(
-            label="Descargar archivo PDB",
-            data=pdb_content,
-            file_name="model_relaxed.pdb",
-            mime="chemical/x-pdb"
+        # Convertir pdb_content a base64
+        b64 = base64.b64encode(pdb_content.encode()).decode()
+
+        st.markdown("### Download PDB File")
+        st.write("You can download the PDB file by clicking on the button below:")
+
+        # Estilo simple para el botón
+        st.markdown(
+            """
+            <style>
+            .download-button {
+                background-color: #A1C6E7;  /* Color celeste pastel */
+                color: black;  /* Color del texto negro */
+                padding: 10px 20px;
+                text-align: center;
+                border-radius: 5px;
+                display: inline-block;
+                margin: 10px 0;
+                text-decoration: none;
+                font-size: 16px;
+            }
+            </style>
+            """, unsafe_allow_html=True
         )
 
-    st.write('PTM Score: ', ptmscore)
+        # Botón de descarga
+        st.markdown(
+            '<a href="data:chemical/x-pdb;base64,{data}" download="model_relaxed.pdb" class="download-button">Download PDB file</a>'.format(data=b64),
+            unsafe_allow_html=True
+        )
+    else:
+        st.error("No PDB content available to download.")
+    
+    st.markdown("### PDB Dataframe")
+    df_pdb = get_pdb_ca_from_content(pdb_content)
+    st.write(df_pdb)
+
+    st.write('### pTM Score ')
+    # Contenedor para mostrar el pTM Score dentro del cuadro
+    st.markdown(f"""
+    <div style="
+        display: flex;
+        align-items: center;
+        background-color: #f8f9fa;
+        border: 1px solid #ddd;
+        border-radius: 8px;
+        padding: 10px 20px;
+        box-shadow: 2px 2px 8px rgba(0,0,0,0.1);
+        width: 180px;
+    ">
+        <div style="
+            background-color: #bae8e8;
+            width: 6px;
+            height: 100%;
+            border-radius: 4px;
+            margin-right: 10px;
+        "></div>
+        <div>
+            <div style="font-size: 24px; font-weight: bold; color: #343a40;">{ptmscore}</div>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
 
     if pdb_content:
-        st.write("Visualizando la estructura 3D del modelo PDB:")
-        view_3d = visualize_pdb_3d(pdb_content)
+        st.markdown("### 3D Structure")
+        #st.write("3D structure with colors based on pLDDT confidence estimation:")
+        spin = st.checkbox("Spin", value=True)  # Toggle for enabling spin
+        # Add color-coded legend
+        st.markdown("""
+        <style>
+            .legend {
+                font-size: 16px;
+                margin-bottom: 20px;
+                background-color: #f9f9f9;
+                padding: 10px;
+                border-radius: 5px;
+                border: 1px solid #ddd;
+            }
+            .legend-item {
+                display: inline-block;
+                margin-right: 15px;
+            }
+        </style>
+        <div class="legend">
+            <strong>Leyenda de colores:</strong><br>
+            <div class="legend-item"><span style="color: blue;">&#9679;</span> Very high (pLDDT > 90)</div>
+            <div class="legend-item"><span style="color: lightblue;">&#9679;</span> Confident (90 > pLDDT > 70)</div>
+            <div class="legend-item"><span style="color: yellow;">&#9679;</span> Low (70 > pLDDT > 50)</div>
+            <div class="legend-item"><span style="color: orange;">&#9679;</span> Very low (pLDDT < 50)</div>
+        </div>
+        """, unsafe_allow_html=True)
+
+        view_3d = visualize_pdb_3d(pdb_content,spin=spin)
+        # Renderizar el visor 3D en Streamlit
         st.components.v1.html(view_3d._make_html(), height=500, width=800)
 
-        st.write('PDB Dataframe')
-        df_pdb = get_pdb_ca_from_content(pdb_content)
-        st.write(df_pdb)
-        st.write('PLDDT')
+        # st.write('PDB Dataframe')
+        #df_pdb = get_pdb_ca_from_content(pdb_content)
+        # st.write(df_pdb)
+        st.write('### PLDDT Plot')
         fig_plddt = GET_PLDDTS(df_pdb)
         st.plotly_chart(fig_plddt)
 
         if pae is not None:
-            st.write("PAE Heatmap:")
+            st.write("### Predicted aligned error (PAE) ")
             fig_pae = GET_PAE_GRAPH(pae)
-            st.plotly_chart(fig_pae)
-    else:
-        st.write("No se encontró un archivo _model_0.cif en el zip.")
+            st.plotly_chart(fig_pae, use_container_width=True)
+
+    shutil.rmtree('temp_folder')
+else:
+    st.warning("No ZIP file has been uploaded.")
+
