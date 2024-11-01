@@ -278,12 +278,12 @@ if uploaded_file is not None:
 
     st.write('PTM Score: ', ptmscore)
     
-    # st.write("PAE's Dataframe")
-    # st.dataframe(pae)
+    st.write("PAE's Dataframe")
+    st.dataframe(pae)
 
-    # fig_pae = GET_PAE_GRAPH(pae)
-    # st.write('PAE´s Heatmap:')
-    # st.plotly_chart(fig_pae)
+    fig_pae = GET_PAE_GRAPH(pae)
+    st.write('PAE´s Heatmap:')
+    st.plotly_chart(fig_pae)
 
     if pdb_content:
         st.write("Visualizando la estructura 3D del modelo PDB:")
